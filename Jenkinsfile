@@ -10,7 +10,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 git(
-                    url: 'https://github.com/khouloud472/Application-micro-service-country-service-.git',
+                    url: 'https://github.com/ManarKh17/Git_Job.git',
                     branch: 'main',
                     credentialsId: 'github-token'
                 )
