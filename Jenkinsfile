@@ -47,8 +47,7 @@ pipeline {
                         sh """
                             docker build -t man17/country-service:v3 .
                             docker run -d -p 8086:8086 --name country-service man17/country-service:v3
-                            docker login
-                            docker push man17/country-service:v3
+                           
                         """
                     }
                 }
