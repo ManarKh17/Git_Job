@@ -42,7 +42,7 @@ pipeline {
             }
         }
 
-         stage('Build & Push Docker Image') {
+        stage('Build & Push Docker Image') {
             steps {
                 script {
                     def version = sh(
@@ -86,48 +86,5 @@ pipeline {
         failure {
             echo "❌ Le pipeline a échoué. Vérifiez les logs Jenkins."
         }
-
-        stage('Deploy WAR to Nexus') {
-            steps {
-                script {
-                    def version = sh(
-                        script: 'mvn help:evaluate -Dexpression=project.version -q -DforceStdout',
-                        returnStdout: true
-                    ).trim()
-
-                    def isSnapshot = version.endsWith('-SNAPSHOT')
-                    def groupId = "com.manar"
-                    def artifactId = "country-service"
-
-                    if (isSnapshot) {
-                        echo "📦 Déploiement SNAPSHOT vers Nexus..."
-                        sh """
-                            mvn deploy:deploy-file \
-                            -Dfile=target/country-service-${version}.war \
-                            -DgroupId=${groupId} \
-                            -DartifactId=${artifactId} \
-                            -Dversion=${version} \
-                            -Dpackaging=war \
-                            -DrepositoryId=nexus-snapshots \
-                            -Durl=http://localhost:8081/repository/maven-snapshots/
-                        """
-                    } else {
-                        echo "🚀 Déploiement RELEASE vers Nexus..."
-                        sh """
-                            mvn deploy:deploy-file \
-                            -Dfile=target/country-service-${version}.war \
-                            -DgroupId=${groupId} \
-                            -DartifactId=${artifactId} \
-                            -Dversion=${version} \
-                            -Dpackaging=war \
-                            -DrepositoryId=nexus-releases \
-                            -Durl=http://localhost:8081/repository/maven-releases/
-                        """
-                    }
-                }
-            }
-        }
-
-       
     }
 }
