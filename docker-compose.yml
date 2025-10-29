@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  country-service1:
+    build: .
+    container_name: country-service1
+    ports:
+      - "8086:8080"    # le premier conteneur
+    expose:
+      - "8086"
+
+  country-service2:
+    build: .
+    container_name: country-service2
+    ports:
+      - "8087:8080"    # le deuxième conteneur
+    expose:
+      - "8087"
