@@ -44,17 +44,11 @@ pipeline {
 
         stage('Build & Push Docker Image') {
             steps {
-                script {
-                    def version = sh(
-                        script: 'mvn help:evaluate -Dexpression=project.version -q -DforceStdout',
-                        returnStdout: true
-                    ).trim()
-
-                    withCredentials([string(credentialsId: 'dockerhub-pwd', variable: 'DOCKERHUB_PWD')]) {
                         sh """
-                            docker build -t man17/country-service:${version} .
-                            docker login -u man17 -p ${DOCKERHUB_PWD}
-                            docker push man17/country-service:${version}
+                            docker build -t man17/country-service:v3 .
+                            docker run -d -p 8086:8086 --name country-service man17/country-service:v3
+                            docker login
+                            docker push man17/country-service:v3
                         """
                     }
                 }
