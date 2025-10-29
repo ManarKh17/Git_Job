@@ -44,10 +44,15 @@ pipeline {
 
         stage('Build & Push Docker Image') {
             steps {
+                script {
+                    def version = "v3"
+                    sh """
+                        docker build -t man17/country-service:${version} .
+                    """
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-cred', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh """
-                            docker build -t man17/country-service:v3 .
-                            docker run -d -p 8086:8086 --name country-service man17/country-service:v3
-                           
+                            echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
+                            docker push ${DOCKER_USER}/country-service:${version}
                         """
                     }
                 }
@@ -58,7 +63,7 @@ pipeline {
             steps {
                 sh '''
                     docker rm -f country-service || true
-                    docker run -d --name country-service -p 8086:8086 man17/country-service:0.0.1-SNAPSHOT
+                    docker run -d --name country-service -p 8086:8086 man17/country-service:v3
                 '''
             }
         }
