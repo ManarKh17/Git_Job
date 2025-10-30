@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: country-service
+  namespace: jenkins
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: country-service
+  template:
+    metadata:
+      labels:
+        app: country-service
+    spec:
+      containers:
+      - name: country-service-container
+        image: man17/country-service:1.0.0
+        ports:
+        - containerPort: 8086

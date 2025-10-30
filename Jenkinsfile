@@ -18,7 +18,7 @@ pipeline {
             }
         }
 
-        stage('Build & Test') {
+        stage('Build Maven') {
             steps {
                 sh 'mvn clean package -Dmaven.test.failure.ignore=true'
             }
@@ -29,60 +29,70 @@ pipeline {
             }
         }
 
-        stage('SonarQube Analysis') {
+        stage('Build Dockerfile') {
             steps {
-                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                script {
+                    // 🔹 Version du build (numéro Jenkins)
+                    def version = "${BUILD_NUMBER}"
+                    def imageName = "man17/country-service:${version}"
+
+                    // 🔹 Construction de l'image Docker
                     sh """
-                        mvn sonar:sonar \
-                        -Dsonar.projectKey=country-service \
-                        -Dsonar.host.url=http://localhost:9000 \
-                        -Dsonar.login=${SONAR_TOKEN}
+                        docker build -t ${imageName} .
+                    """
+
+                    // 🔹 Connexion à DockerHub
+                    withCredentials([string(credentialsId: 'dockerhub-pwd', variable: 'DOCKER_PASS')]) {
+                        sh """
+                            echo "${DOCKER_PASS}" | docker login -u "man17" --password-stdin
+                        """
+                    }
+
+                    // 🔹 Push sur DockerHub
+                    sh """
+                        docker push ${imageName}
                     """
                 }
             }
         }
 
-        stage('Build & Push Docker Image') {
+        stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    def version = "v3"
-                    sh """
-                        docker build -t man17/country-service:${version} .
-                    """
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub-cred', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh """
-                            echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
-                            docker push ${DOCKER_USER}/country-service:${version}
-                        """
+                    // 🔹 Connexion Kubernetes via Credentials Jenkins
+                    kubeconfig(credentialsId: 'kubeconfig-file', serverUrl: '') {
+                        // Mise à jour des fichiers YAML avant déploiement
+                        sh '''
+                            sed -i "s|man17/country-service:.*|man17/country-service:${BUILD_NUMBER}|" deployment.yaml
+                            kubectl apply -f deployment.yaml -n jenkins
+                            kubectl apply -f service.yaml -n jenkins
+                            kubectl rollout status deployment/country-service -n jenkins
+                        '''
                     }
                 }
             }
         }
 
-        stage('Deploy micro-service (Docker)') {
-            steps {
-                sh '''
-                    docker rm -f country-service || true
-                    docker run -d --name country-service -p 8086:8086 man17/country-service:v3
-                '''
-            }
-        }
-
         stage('Verify Deployment') {
             steps {
-                echo "🔍 Vérification du déploiement sur Docker..."
-                sh 'sleep 10'
-                sh 'curl -I http://localhost:8086/ || true'
+                script {
+                    kubeconfig(credentialsId: 'kubeconfig-file', serverUrl: '') {
+                        sh '''
+                            kubectl get pods -n jenkins
+                            kubectl get svc -n jenkins
+                        '''
+                    }
+                }
             }
         }
     }
 
     post {
         success {
-            echo "✅ Pipeline exécuté avec succès !"
+            echo "✅ Pipeline exécuté avec succès — Application déployée sur Kubernetes !"
         }
         failure {
-            echo "❌ Le pipeline a échoué. Vérifiez les logs Jenkins."
+            echo "❌ Le pipeline a échoué. Consulte les logs Jenkins pour les détails."
         }
     }
 }
