@@ -6,6 +6,12 @@ pipeline {
         jdk 'JDK17'
     }
 
+    environment {
+        DOCKER_USER = 'man17'
+        IMAGE_NAME = 'country-service'
+        NAMESPACE = 'jenkins'
+    }
+
     stages {
 
         stage('Checkout') {
@@ -20,7 +26,8 @@ pipeline {
 
         stage('Build Maven') {
             steps {
-                sh 'mvn clean package -Dmaven.test.failure.ignore=true'
+                echo "🚀 Compilation du projet avec Maven..."
+                sh 'mvn clean package -DskipTests=true'
             }
             post {
                 always {
@@ -29,29 +36,29 @@ pipeline {
             }
         }
 
-        stage('Build Dockerfile') {
+        stage('Build Docker Image') {
             steps {
                 script {
-                    // 🔹 Version du build (numéro Jenkins)
                     def version = "${BUILD_NUMBER}"
-                    def imageName = "man17/country-service:${version}"
+                    def imageTag = "${DOCKER_USER}/${IMAGE_NAME}:${version}"
 
-                    // 🔹 Construction de l'image Docker
-                    sh """
-                        docker build -t ${imageName} .
-                    """
+                    echo "🏗️ Construction de l'image Docker : ${imageTag}"
 
-                    // 🔹 Connexion à DockerHub
+                    // Build de l'image
+                    sh "docker build -t ${imageTag} ."
+
+                    // Connexion à DockerHub
                     withCredentials([string(credentialsId: 'dockerhub-pwd', variable: 'DOCKER_PASS')]) {
-                        sh """
-                            echo "${DOCKER_PASS}" | docker login -u "man17" --password-stdin
-                        """
+                        sh '''
+                            echo "$DOCKER_PASS" | docker login -u "man17" --password-stdin
+                        '''
                     }
 
-                    // 🔹 Push sur DockerHub
-                    sh """
-                        docker push ${imageName}
-                    """
+                    // Push sur DockerHub
+                    sh "docker push ${imageTag}"
+
+                    // Nettoyage local
+                    sh "docker rmi ${imageTag} || true"
                 }
             }
         }
@@ -59,15 +66,15 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // 🔹 Connexion Kubernetes via Credentials Jenkins
-                    kubeconfig(credentialsId: 'kubeconfig-file', serverUrl: '') {
-                        // Mise à jour des fichiers YAML avant déploiement
-                        sh '''
-                            sed -i "s|man17/country-service:.*|man17/country-service:${BUILD_NUMBER}|" deployment.yaml
-                            kubectl apply -f deployment.yaml -n jenkins
-                            kubectl apply -f service.yaml -n jenkins
-                            kubectl rollout status deployment/country-service -n jenkins
-                        '''
+                    echo "☸️ Déploiement sur Kubernetes..."
+
+                    kubeconfig(credentialsId: 'kubeconfig-jenkins', serverUrl: '') {
+                        sh """
+                            sed -i 's|man17/country-service:.*|man17/country-service:${BUILD_NUMBER}|' deployment.yaml
+                            kubectl apply -f deployment.yaml -n ${NAMESPACE}
+                            kubectl apply -f service.yaml -n ${NAMESPACE}
+                            kubectl rollout status deployment/${IMAGE_NAME} -n ${NAMESPACE}
+                        """
                     }
                 }
             }
@@ -76,11 +83,12 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 script {
-                    kubeconfig(credentialsId: 'kubeconfig-file', serverUrl: '') {
-                        sh '''
-                            kubectl get pods -n jenkins
-                            kubectl get svc -n jenkins
-                        '''
+                    kubeconfig(credentialsId: 'kubeconfig-jenkins', serverUrl: '') {
+                        sh """
+                            echo '📦 Vérification du déploiement...'
+                            kubectl get pods -n ${NAMESPACE}
+                            kubectl get svc -n ${NAMESPACE}
+                        """
                     }
                 }
             }
