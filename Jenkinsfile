@@ -2,15 +2,14 @@ pipeline {
     agent any
 
     tools {
-        maven 'M2_Home'   // Nom configuré dans Jenkins (Manage Jenkins → Global Tool Configuration)
+        maven 'M2_Home'
         jdk 'JDK17'
     }
 
     environment {
-        DOCKER_USER = 'man17'                    // ton username DockerHub
-        IMAGE_NAME = 'country-service'           // nom de ton image Docker
-        NAMESPACE = 'jenkins'                    // namespace Kubernetes
-        ANSIBLE_PLAYBOOK = 'playbookCICD.yml'    // ton playbook Ansible
+        DOCKER_USER = 'man17'
+        IMAGE_NAME = 'country-service'
+        NAMESPACE = 'jenkins'
     }
 
     stages {
@@ -46,37 +45,29 @@ pipeline {
 
                     echo "🏗️ Construction et push de l'image Docker : ${imageTag}"
 
-                    // Build de l'image
                     sh "docker build -t ${imageTag} ."
 
-                    // Connexion et push vers DockerHub
                     withCredentials([string(credentialsId: 'dockerhub-pwd', variable: 'DOCKER_PASS')]) {
                         sh '''
                             echo "$DOCKER_PASS" | docker login -u "man17" --password-stdin
                         '''
                     }
+
                     sh "docker push ${imageTag}"
-
-                    // Nettoyage local
                     sh "docker rmi ${imageTag} || true"
-
-                    // Sauvegarde du tag pour Ansible
-                    env.IMAGE_TAG = version
                 }
             }
         }
 
-        stage('Deploy using Ansible') {
+        stage('Deploy using Ansible playbook') {
             steps {
                 script {
-                    echo "⚙️ Exécution du playbook Ansible pour déployer sur Kubernetes..."
-
-                    // Exécution du playbook Ansible
+                    echo "⚙️ Déploiement via Ansible..."
                     sh """
-                        ansible-playbook ${ANSIBLE_PLAYBOOK} \
+                        ansible-playbook playbookCICD.yml \
                         -e docker_registry_username=${DOCKER_USER} \
                         -e image_name=${IMAGE_NAME} \
-                        -e image_tag=${IMAGE_TAG}
+                        -e image_tag=${BUILD_NUMBER}
                     """
                 }
             }
@@ -101,10 +92,10 @@ pipeline {
             cleanWs()
         }
         success {
-            echo "✅ Pipeline exécuté avec succès — Application déployée via Ansible et Kubernetes !"
+            echo '✅ Ansible playbook executed successfully!'
         }
         failure {
-            echo "❌ Le pipeline a échoué. Consulte les logs Jenkins pour les détails."
+            echo '❌ Ansible playbook execution failed!'
         }
     }
 }
