@@ -8,7 +8,7 @@
     image_tag: v1
     dockerfile_path: "./"
     docker_registry_username: "man17"
-    docker_registry_password: "Manar.2021"
+    docker_registry_password: ""
 
   tasks:
     - name: Log in to Docker Hub
@@ -33,12 +33,11 @@
         push: yes
         source: local
 
-    - name: Apply Kubernetes Deployment
-      kubernetes.core.k8s:
-        state: present
-        namespace: jenkins
-        src: deployment.yaml
-        kubeconfig: ./config 
+    - name: Pull Docker image (optional)
+      community.docker.docker_image:
+        name: "{{ docker_registry_username }}/{{ image_name }}"
+        tag: "{{ image_tag }}"
+        source: pull
 
     - name: Apply Kubernetes Service
       kubernetes.core.k8s:
@@ -46,3 +45,10 @@
         namespace: jenkins
         src: service.yaml
         kubeconfig: ./config  
+
+    - name: Apply Kubernetes Deployment
+      kubernetes.core.k8s:
+        state: present
+        namespace: jenkins
+        src: deployment.yaml
+        kubeconfig: ./config 

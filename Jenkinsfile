@@ -51,47 +51,21 @@ pipeline {
             }
         }
 
-        stage('Build & Push Docker Image') {
-            steps {
-                script {
-                    def version = "${BUILD_NUMBER}"
-                    def imageTag = "${DOCKER_USER}/${IMAGE_NAME}:${version}"
-
-                    echo "🏗️ Construction et push de l'image Docker : ${imageTag}"
-
-                    // Build de l'image
-                    sh "docker build -t ${imageTag} ."
-
-                    // Connexion à DockerHub
-                    withCredentials([string(credentialsId: 'dockerhub-pwd', variable: 'DOCKER_PASS')]) {
-                        sh '''
-                            echo "$DOCKER_PASS" | docker login -u "man17" --password-stdin
-                        '''
-                    }
-
-                    // Push sur DockerHub
-                    sh "docker push ${imageTag}"
-
-                    // Nettoyage local
-                    sh "docker rmi ${imageTag} || true"
-
-                    env.IMAGE_TAG = version
-                }
-            }
-        }
+        // Docker build & push is handled inside the Ansible playbook (as per course template)
 
         stage('Deploy using Ansible') {
             steps {
                 script {
                     echo "⚙️ Déploiement de l'application avec Ansible..."
-
-                    // Exécution du playbook
-                    sh """
-                        ansible-playbook ${ANSIBLE_PLAYBOOK} \
-                        -e docker_registry_username=${DOCKER_USER} \
-                        -e image_name=${IMAGE_NAME} \
-                        -e image_tag=${IMAGE_TAG}
-                    """
+                    withCredentials([string(credentialsId: 'dockerhub-pwd', variable: 'DOCKER_PASS')]) {
+                        sh """
+                            ansible-playbook -i hosts ${ANSIBLE_PLAYBOOK} \
+                            -e docker_registry_username=${DOCKER_USER} \
+                            -e docker_registry_password=${DOCKER_PASS} \
+                            -e image_name=${IMAGE_NAME} \
+                            -e image_tag=v1
+                        """
+                    }
                 }
             }
         }

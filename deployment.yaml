@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
       - name: country-service-container
-        image: man17/country-service:1.0.0
+        image: man17/country-service:v1
         ports:
         - containerPort: 8086
