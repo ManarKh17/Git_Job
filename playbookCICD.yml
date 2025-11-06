@@ -9,8 +9,18 @@
     dockerfile_path: "./"
     docker_registry_username: "man17"
     docker_registry_password: ""
+    ansible_python_interpreter: /usr/bin/python3
 
   tasks:
+    - name: Ensure Python packages for Kubernetes modules are present
+      ansible.builtin.pip:
+        name:
+          - kubernetes
+          - openshift
+          - PyYAML
+        state: present
+      become: true
+
     - name: Log in to Docker Hub
       community.general.docker_login:
         username: "{{ docker_registry_username }}"
