@@ -58,13 +58,13 @@ pipeline {
                 script {
                     echo "⚙️ Déploiement de l'application avec Ansible..."
                     withCredentials([string(credentialsId: 'dockerhub-pwd', variable: 'DOCKER_PASS')]) {
-                        sh """
+                        sh '''
                             ansible-playbook -i hosts ${ANSIBLE_PLAYBOOK} \
-                            -e docker_registry_username=${DOCKER_USER} \
-                            -e docker_registry_password=${DOCKER_PASS} \
-                            -e image_name=${IMAGE_NAME} \
-                            -e image_tag=v1
-                        """
+                            -e docker_registry_username='${DOCKER_USER}' \
+                            -e docker_registry_password="$DOCKER_PASS" \
+                            -e image_name='${IMAGE_NAME}' \
+                            -e image_tag='v1'
+                        '''
                     }
                 }
             }
