@@ -61,9 +61,9 @@ pipeline {
                         sh '''
                             ansible-playbook -i hosts ${ANSIBLE_PLAYBOOK} \
                             --skip-tags deps \
-                            -e docker_registry_username='${DOCKER_USER}' \
+                            -e docker_registry_username="$DOCKER_USER" \
                             -e docker_registry_password="$DOCKER_PASS" \
-                            -e image_name='${IMAGE_NAME}' \
+                            -e image_name="$IMAGE_NAME" \
                             -e image_tag='v1'
                         '''
                     }
