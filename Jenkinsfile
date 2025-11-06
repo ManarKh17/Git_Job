@@ -76,6 +76,7 @@ pipeline {
                 script {
                     echo "☸️ Vérification du déploiement Kubernetes..."
                     sh """
+                        export KUBECONFIG=./config
                         kubectl get pods -n ${NAMESPACE}
                         kubectl get svc -n ${NAMESPACE}
                     """
