@@ -2,17 +2,31 @@ pipeline {
     agent any
 
     tools {
-        maven 'M2_Home'
-        jdk 'JDK17'
+        maven 'M2_Home'      // Maven configuré dans Jenkins
+        jdk 'JDK17'          // JDK configuré dans Jenkins
     }
 
     environment {
         DOCKER_USER = 'man17'
         IMAGE_NAME = 'country-service'
         NAMESPACE = 'jenkins'
+        ANSIBLE_PLAYBOOK = 'playbookCICD.yml'
     }
 
     stages {
+
+        stage('Tool Install') {
+            steps {
+                echo "🔧 Vérification des outils..."
+                sh '''
+                    mvn -v
+                    java -version
+                    ansible --version
+                    docker --version
+                    kubectl version --client
+                '''
+            }
+        }
 
         stage('Checkout Code') {
             steps {
@@ -45,29 +59,38 @@ pipeline {
 
                     echo "🏗️ Construction et push de l'image Docker : ${imageTag}"
 
+                    // Build de l'image
                     sh "docker build -t ${imageTag} ."
 
+                    // Connexion à DockerHub
                     withCredentials([string(credentialsId: 'dockerhub-pwd', variable: 'DOCKER_PASS')]) {
                         sh '''
                             echo "$DOCKER_PASS" | docker login -u "man17" --password-stdin
                         '''
                     }
 
+                    // Push sur DockerHub
                     sh "docker push ${imageTag}"
+
+                    // Nettoyage local
                     sh "docker rmi ${imageTag} || true"
+
+                    env.IMAGE_TAG = version
                 }
             }
         }
 
-        stage('Deploy using Ansible playbook') {
+        stage('Deploy using Ansible') {
             steps {
                 script {
-                    echo "⚙️ Déploiement via Ansible..."
+                    echo "⚙️ Déploiement de l'application avec Ansible..."
+
+                    // Exécution du playbook
                     sh """
-                        ansible-playbook playbookCICD.yml \
+                        ansible-playbook ${ANSIBLE_PLAYBOOK} \
                         -e docker_registry_username=${DOCKER_USER} \
                         -e image_name=${IMAGE_NAME} \
-                        -e image_tag=${BUILD_NUMBER}
+                        -e image_tag=${IMAGE_TAG}
                     """
                 }
             }
@@ -92,10 +115,10 @@ pipeline {
             cleanWs()
         }
         success {
-            echo '✅ Ansible playbook executed successfully!'
+            echo "✅ Pipeline exécuté avec succès — Application déployée via Ansible et Kubernetes !"
         }
         failure {
-            echo '❌ Ansible playbook execution failed!'
+            echo "❌ Le pipeline a échoué. Consulte les logs Jenkins pour les détails."
         }
     }
 }
