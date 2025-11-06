@@ -19,7 +19,11 @@
           - openshift
           - PyYAML
         state: present
+        executable: pip3
+        extra_args: --break-system-packages
       become: true
+      tags:
+        - deps
 
     - name: Log in to Docker Hub
       community.general.docker_login:
